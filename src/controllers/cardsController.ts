@@ -23,9 +23,9 @@ export async function create (req:Request, res:Response) {
     
     if(!apiKey) return res.status(401).send('usuario nao autorizado')
 
-    await cardService.create(apiKey, employeeId, type) 
+    const resul = await cardService.create(apiKey, employeeId, type) 
 
-    res.status(201).send('Deu certo tudo ')
+    res.status(201).send(resul)
 }
 
 export async function active(req:Request , res:Response) {
@@ -79,8 +79,6 @@ export async function payment(req:Request, res:Response){
     res.status(200).send('Compra com cartão feita com sucesso ')
 }
 
-
-
 export async function transactions(req:Request, res:Response){
     const {id} = req.params
     const {employeeId} = req.body
@@ -88,4 +86,14 @@ export async function transactions(req:Request, res:Response){
     const balance = await cardService.transactions(Number(id), employeeId)
 
     res.status(200).send(balance)
+}
+
+export async function statusCard(req:Request, res:Response){
+    const {id} = req.params
+
+    const { status, employeeId, password} =req.body
+
+    await cardService.statusCard(Number(id),status,employeeId,password)
+
+    res.status(200).send('Operação feita com sucesso ')
 }

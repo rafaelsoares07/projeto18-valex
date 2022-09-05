@@ -60,6 +60,8 @@ export async function create(
     }
 
     await insert(newCard)
+
+    return `O codígo cvv do seu cartão é ${cardCVV}`
 }
 
 export async function active(id:number , cvc:string, password:string){
@@ -149,6 +151,10 @@ export async function payment(id:number, password:string, businessId:number, amo
         throw {type:'not found' , message:"Empresa não ta cadastrada" }
     }
 
+    if(card.isBlocked===true){
+        throw {type:'conflit' , message:"Cartão está bloqueado para compras" }
+    }
+
 
     const payments = await paymentRepository.findByCardId(id)
     const recharges = await rechargeRepository.findByCardId(id)
@@ -188,7 +194,7 @@ export async function transactions(id:number, employeeId:number) {
     if(card.employeeId !== employeeId){
         throw {
             type: "unauthorized",
-            message: "unauthorized user"
+            message: "unauthorized userrr"
         }
     }
 
@@ -215,4 +221,49 @@ export async function transactions(id:number, employeeId:number) {
 
     return transactionsData;
 
+}
+
+export async function statusCard(id:number, setStatus:string , employeeId:number , password:string){
+
+   
+    
+    const card = await cardRepository.findById(id)
+    if(!card){
+        throw {type:'not found' , message:'O cartão deve existir para poder ser ativado '}
+    }
+
+    if(card.employeeId !== employeeId){
+        throw { type: "unauthorized",message: "Usuario não é o dono do cartão"}
+    }
+    
+    const isAlreadyActive = card.password;
+    if(!isAlreadyActive){
+        throw {type:"bad_request" ,message:"cartão não esta ativado"}
+    }
+
+    const today = dayjs().format("MM/YY");
+    if (dayjs(today).isAfter(dayjs(card.expirationDate))){
+        throw {type : "bad_request" , message:"cartão já expirou"} 
+    } 
+
+    const isPasswordValid = bcrypt.compareSync(password, isAlreadyActive) // não pegou card.password
+    if(!isPasswordValid){
+        throw {type:"unauthorized", message:"senha informada não bate com a do user"}
+    }
+
+    if(setStatus==="block" && card.isBlocked===true){
+        throw {type:"bad_request", message:"cartão já ta bloqueado"}
+    }
+
+    if(setStatus==="unblock" && card.isBlocked===false){
+        throw {type:"bad_request", message:"cartão já ta desbloqueado"}
+    }
+
+    if(setStatus==="block" && card.isBlocked===false){
+        await cardRepository.update(id ,{isBlocked:true})
+    }
+
+    if(setStatus==="unblock" && card.isBlocked===true){
+        await cardRepository.update(id ,{isBlocked:false})
+    }
 }
