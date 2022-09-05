@@ -100,6 +100,7 @@ export async function insert(cardData: CardInsertData) {
       type,
     ]
   );
+  
 }
 
 export async function update(id: number, cardData: CardUpdateData) {

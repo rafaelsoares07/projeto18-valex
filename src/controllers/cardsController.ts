@@ -6,12 +6,8 @@ import createCardSchema from "../schemas/createCardSchema";
 
 import * as cardService from "../services/cardService"
 
+import activateCardSchema from "../schemas/activateCardSchema";
 
-export async function get(req:Request , res:Response) {
-    const result = await findById(2)
-    console.log(result)
-    res.status(200).send(result)
-}
 
 export async function create (req:Request, res:Response) {
 
@@ -27,8 +23,51 @@ export async function create (req:Request, res:Response) {
     
     if(!apiKey) return res.status(401).send('usuario nao autorizado')
 
-
     await cardService.create(apiKey, employeeId, type) 
 
     res.status(201).send('Deu certo tudo ')
 }
+
+export async function active(req:Request , res:Response) {
+    
+    const {id} = req.params
+    const activeCardData = req.body
+    const {cvc, password} = req.body
+
+    console.log(id)
+    console.log(cvc)
+    console.log(password)
+
+    const validation = activateCardSchema.validate(activeCardData)
+    if(validation.error){
+        console.log(validation.error.details)
+
+        return res.status(401).send('Erro no Body')
+    }
+
+    await cardService.active(Number(id), cvc, password)
+
+    res.status(200).send('Cartão Ativado')
+}
+
+export async function recharge(req:Request , res:Response) {
+    
+    const {id} = req.params
+    const {amount} = req.body
+
+    const apiKey = req.headers["x-api-key"] as string;
+
+    if(amount<=0){
+        return res.status(400).send('amoutn menor que 0 ')
+    }
+
+    await cardService.recharge(apiKey,Number(id),amount)
+
+    res.status(200).send('Cartão Recaregado com sucesso ')
+}
+
+
+export 
+
+
+
