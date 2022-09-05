@@ -3,7 +3,8 @@ import { findById } from "../repositories/employeeRepository";
 import { findByTypeAndEmployeeId , insert} from "../repositories/cardRepository";
 import * as cardRepository from "../repositories/cardRepository";
 import * as rechargeRepository from "../repositories/rechargeRepository"
-
+import * as businessRepository from "../repositories/businessRepository"
+import * as paymentRepository from "../repositories/paymentRepository"
 
 import { faker } from '@faker-js/faker';
 import dayjs from "dayjs";
@@ -37,7 +38,7 @@ export async function create(
     const cryptr = new Cryptr("senhasenha");
     const cardCVV = faker.finance.creditCardCVV()
     const cvvEncrip = cryptr.encrypt(cardCVV);
-
+    console.log(cardCVV)
 
     //Destruturacao de array com spread operator [ , , c] = ["morango", "banana", "cenoura"] -> pegaria só cenoura
     const [firstName, ...outherNames] = employee.fullName.split(" ")
@@ -64,8 +65,9 @@ export async function create(
 export async function active(id:number , cvc:string, password:string){
 
     const card = await cardRepository.findById(id)
+    console.log(card)
     if(!card){
-        throw {type:'NotFound' , message:'O cartão deve existir para poder ser ativado '}
+        throw {type:'not found' , message:'O cartão deve existir para poder ser ativado '}
     }
     
     const today = dayjs().format("MM/YY");
@@ -94,8 +96,6 @@ export async function active(id:number , cvc:string, password:string){
     await cardRepository.update(id, { password: passwordHash });
 }
     
-
-
 export async function recharge(apiKey:string, id:number, amount:number ){
     const company = await findByApiKey(apiKey)
     if(!company){
@@ -104,7 +104,7 @@ export async function recharge(apiKey:string, id:number, amount:number ){
 
     const card = await cardRepository.findById(id)
     if(!card){
-        throw {type:'NotFound' , message:'O cartão deve existir para poder ser ativado '}
+        throw {type:'not found' , message:'O cartão deve existir para poder ser ativado '}
     }
 
     const isAlreadyActive = card.password;
@@ -119,5 +119,100 @@ export async function recharge(apiKey:string, id:number, amount:number ){
 
 
     await rechargeRepository.insert({cardId:id, amount})
+
+}
+
+export async function payment(id:number, password:string, businessId:number, amount: number){
+   
+    const card = await cardRepository.findById(id)
+    if(!card){
+        throw {type:'not found' , message:'O cartão deve existir para poder ser ativado '}
+    }
+
+    const isAlreadyActive = card.password;
+    if(!isAlreadyActive){
+        throw {type:"bad_request" ,message:"cartão não esta ativado"}
+    }
+
+    const today = dayjs().format("MM/YY");
+    if (dayjs(today).isAfter(dayjs(card.expirationDate))){
+        throw {type : "bad_request" , message:"cartão já expirou"} 
+    } 
+
+    const isPasswordValid = bcrypt.compareSync(password, isAlreadyActive) // não pegou card.password
+    if(!isPasswordValid){
+        throw {type:"unauthorized", message:"senha informada não bate com a do user"}
+    }
+
+    const businessExist = await businessRepository.findById(businessId)
+    if(!businessExist){
+        throw {type:'not found' , message:"Empresa não ta cadastrada" }
+    }
+
+
+    const payments = await paymentRepository.findByCardId(id)
+    const recharges = await rechargeRepository.findByCardId(id)
+    
+
+    const totalPaymentsAmount = payments.reduce((amount, transaction)=>{
+        return amount + transaction.amount
+    }, 0);
+
+    const totalRechargeAmount= recharges.reduce((amount, transaction)=>{
+        return amount + transaction.amount
+    }, 0);
+
+    const cardAmount = totalRechargeAmount-totalPaymentsAmount
+
+    if(cardAmount<amount){
+        throw {type:"bad_request" , message:"Não tem saldo suficiente para realizar a compra "}
+    }
+
+    if(card.type!= businessExist.type){
+        throw {type: "bad_request" , message:"tipo de loja é diferente do cartao"}
+    }
+
+    
+    
+    await paymentRepository.insert({cardId:id, businessId, amount})
+
+}
+
+export async function transactions(id:number, employeeId:number) {
+
+    const card = await cardRepository.findById(id)
+    if(!card){
+        throw {type:'not found' , message:'O cartão deve existir para poder ser ativado '}
+    }
+
+    if(card.employeeId !== employeeId){
+        throw {
+            type: "unauthorized",
+            message: "unauthorized user"
+        }
+    }
+
+   
+    const recharges = await rechargeRepository.findByCardId(id);
+    let rechargeValues = 0;
+    if(recharges.length > 0){
+        recharges.map((recharge) => rechargeValues += recharge.amount);
+    }
+
+    
+    const purchases = await paymentRepository.findByCardId(id);
+    let purchaseValues = 0;
+    if(purchases.length > 0){
+        purchases.map((purchase) => purchaseValues += purchase.amount);
+    }
+
+    const total = rechargeValues - purchaseValues;
+    const transactionsData = {
+        total,
+        "transactions": purchases,
+        "recharges": recharges
+    }
+
+    return transactionsData;
 
 }

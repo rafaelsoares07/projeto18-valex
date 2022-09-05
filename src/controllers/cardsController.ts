@@ -66,8 +66,26 @@ export async function recharge(req:Request , res:Response) {
     res.status(200).send('Cartão Recaregado com sucesso ')
 }
 
+export async function payment(req:Request, res:Response){
+    const {id} = req.params
+    const {amount,businessId,password} = req.body
 
-export 
+    if(amount<=0){
+        return res.status(400).send('amout menor que 0 ')
+    }
+
+    await cardService.payment(Number(id),password,businessId,amount)
+
+    res.status(200).send('Compra com cartão feita com sucesso ')
+}
 
 
 
+export async function transactions(req:Request, res:Response){
+    const {id} = req.params
+    const {employeeId} = req.body
+
+    const balance = await cardService.transactions(Number(id), employeeId)
+
+    res.status(200).send(balance)
+}

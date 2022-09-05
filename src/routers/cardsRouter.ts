@@ -9,4 +9,6 @@ const cardsRouter = Router()
 cardsRouter.post("/cards", cardsContoller.create)
 cardsRouter.post("/cards/:id/activate", cardsContoller.active)
 cardsRouter.post("/cards/:id/recharge", cardsContoller.recharge)
+cardsRouter.post("/cards/:id/payment", cardsContoller.payment)
+cardsRouter.get("/cards/transacoes/:id", cardsContoller.transactions)
 export default cardsRouter
